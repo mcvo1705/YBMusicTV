@@ -52,6 +52,9 @@ class PlayerController @Inject constructor(
 
     private var ctrl: MediaController? = null
     private var progressJob: Job? = null
+    // videoId đã thử "cứu" URL hết hạn (resolve lại) — chỉ cho phép MỘT lần mỗi
+    // bài để KHÔNG tạo vòng lặp reload vô hạn khi lỗi là vĩnh viễn (vd anti-bot).
+    private var recoveredTrackId: String? = null
     // Đánh dấu đang trong quá trình buildAsync() để chặn gọi connect() chồng nhau
     // (vd: Activity tạo lại nhanh) tạo ra HAI MediaController cho cùng một session.
     private var connecting = false
@@ -166,6 +169,8 @@ class PlayerController @Inject constructor(
         }
 
         Log.d(TAG, "playAt(index=$index) START videoId=${track.id} title='${track.title}'")
+        // Bài mới ⇒ cho phép cứu URL hết hạn một lần nữa cho bài này.
+        recoveredTrackId = null
         _state.value = _state.value.copy(
             currentTrack = track,
             isBuffering  = true,
@@ -177,16 +182,7 @@ class PlayerController @Inject constructor(
             Log.d(TAG, "  [1/4] resolving stream URL for videoId=${track.id}")
             val url  = repo.streamUrl(track.id)
             Log.d(TAG, "  [2/4] stream URL ok (len=${url.length}): ${url.take(100)}…")
-            val item = MediaItem.Builder()
-                .setUri(url)
-                .setMediaMetadata(
-                    MediaMetadata.Builder()
-                        .setTitle(track.title)
-                        .setArtist(track.author)
-                        .setArtworkUri(Uri.parse(track.thumbnailUrl))
-                        .build()
-                )
-                .build()
+            val item = buildItem(track, url)
 
             Log.d(TAG, "  [3/4] setMediaItem() + prepare()")
             c.setMediaItem(item)
@@ -223,18 +219,74 @@ class PlayerController @Inject constructor(
                 Log.d(TAG, "Listener.onMediaItemTransition → '${item?.mediaMetadata?.title}' reason=$reason")
             }
             override fun onPlayerError(error: PlaybackException) {
-                // Lỗi phát (vd: 403 từ CDN, codec không hỗ trợ) — log rõ lý do và
-                // hiện cho người dùng thay vì "đứng hình" im lặng.
                 Log.e(TAG, "Listener.onPlayerError [${error.errorCodeName}] (code=${error.errorCode}): " +
                     "${error.message}", error)
-                _state.value = _state.value.copy(
-                    isBuffering = false,
-                    isPlaying   = false,
-                    error       = "Không phát được: ${error.errorCodeName}",
-                )
+                // Lỗi nhóm 2xxx = lỗi nguồn/IO (vd HTTP 403 do URL googlevideo hết
+                // hạn hoặc bị ràng buộc IP). Đây là nguyên nhân THẬT của "video tự
+                // dừng / cần tải lại" giữa chừng. Cách đúng: resolve lại URL MỚI và
+                // phát tiếp từ vị trí cũ — KHÔNG phải tải lại cả màn hình. Giới hạn
+                // một lần/bài để tránh vòng lặp khi lỗi vĩnh viễn.
+                val isSourceIoError = error.errorCode / 1000 == 2
+                if (isSourceIoError) recoverFromSourceError(error)
+                else surfacePlaybackError(error)
             }
         })
     }
+
+    /** Hiện lỗi phát cho người dùng (không tự cứu được). */
+    private fun surfacePlaybackError(error: PlaybackException) {
+        _state.value = _state.value.copy(
+            isBuffering = false,
+            isPlaying   = false,
+            error       = "Không phát được: ${error.errorCodeName}",
+        )
+    }
+
+    /**
+     * Cứu lỗi nguồn (URL hết hạn) đúng cách: xoá cache → lấy URL mới → phát tiếp
+     * từ vị trí đang nghe. Mỗi bài chỉ thử MỘT lần (recoveredTrackId) để nếu lỗi
+     * là vĩnh viễn (anti-bot, video gỡ) thì dừng và báo lỗi, không reload lặp vô tận.
+     */
+    private fun recoverFromSourceError(error: PlaybackException) {
+        val track = _state.value.currentTrack ?: return surfacePlaybackError(error)
+        if (recoveredTrackId == track.id) {
+            Log.e(TAG, "onPlayerError: already re-resolved '${track.id}' once — surfacing error, " +
+                "NOT reloading again (loop guard)")
+            return surfacePlaybackError(error)
+        }
+        recoveredTrackId = track.id
+        val resumeAt = ctrl?.currentPosition ?: 0L
+        Log.w(TAG, "onPlayerError [${error.errorCodeName}] → stream URL likely expired; re-resolving " +
+            "FRESH url for '${track.id}' and resuming at ${resumeAt}ms (one-shot recovery)")
+        _state.value = _state.value.copy(isBuffering = true, error = null)
+        scope.launch {
+            runCatching {
+                repo.invalidateStream(track.id)
+                val url = repo.streamUrl(track.id)
+                val c   = ctrl ?: return@launch
+                c.setMediaItem(buildItem(track, url))
+                c.prepare()
+                c.seekTo(resumeAt)
+                c.play()
+                Log.d(TAG, "recovery: re-prepared '${track.id}' with fresh url, seek=${resumeAt}ms")
+            }.onFailure { e ->
+                Log.e(TAG, "recovery FAILED for '${track.id}': ${e.message}", e)
+                surfacePlaybackError(error)
+            }
+        }
+    }
+
+    private fun buildItem(track: Track, url: String): MediaItem =
+        MediaItem.Builder()
+            .setUri(url)
+            .setMediaMetadata(
+                MediaMetadata.Builder()
+                    .setTitle(track.title)
+                    .setArtist(track.author)
+                    .setArtworkUri(Uri.parse(track.thumbnailUrl))
+                    .build()
+            )
+            .build()
 
     private fun startProgress() {
         progressJob = scope.launch {

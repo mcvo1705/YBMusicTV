@@ -135,6 +135,15 @@ class YouTubeSource @Inject constructor() {
         }
     }
 
+    // Xoá URL đã cache cho videoId này để lần streamUrl() kế tiếp lấy URL MỚI từ
+    // NewPipe. Dùng khi ExoPlayer báo lỗi nguồn (vd HTTP 403 do URL googlevideo
+    // hết hạn / bị ràng buộc IP) — phải resolve lại thay vì phát URL chết.
+    fun invalidate(videoId: String) {
+        if (cache.remove(videoId) != null) {
+            Log.d(STREAM_TAG, "invalidate($videoId): dropped cached stream URL (will re-resolve fresh)")
+        }
+    }
+
     // ── Single video info ─────────────────────────────────────────────────────
     suspend fun videoInfo(videoId: String): Track = withContext(Dispatchers.IO) {
         try {
