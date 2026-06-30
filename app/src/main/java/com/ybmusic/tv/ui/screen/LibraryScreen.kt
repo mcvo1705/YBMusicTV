@@ -2,7 +2,6 @@ package com.ybmusic.tv.ui.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -55,7 +54,7 @@ fun LibraryScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
         ) {
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                 Text("Thư viện", style = MaterialTheme.typography.headlineSmall, color = TextPrimary)
-                IconButton(onClick = { showCreate = true }, modifier = Modifier.focusable()) {
+                IconButton(onClick = { showCreate = true }) {
                     Icon(Icons.Default.Add, "Tạo mới", tint = Purple)
                 }
             }
@@ -90,7 +89,6 @@ fun LibraryScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
                         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                             Button(
                                 onClick = { vm.playAll(tracks) },
-                                modifier = Modifier.focusable(),
                                 colors = ButtonDefaults.buttonColors(containerColor = Purple),
                             ) {
                                 Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(18.dp))
@@ -98,7 +96,6 @@ fun LibraryScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
                             }
                             OutlinedButton(
                                 onClick = { vm.playShuffle(tracks) },
-                                modifier = Modifier.focusable(),
                                 border = ButtonDefaults.outlinedButtonBorder,
                             ) {
                                 Icon(Icons.Default.Shuffle, null, tint = Purple, modifier = Modifier.size(18.dp))
@@ -137,11 +134,10 @@ private fun PlaylistItem(pl: Playlist, selected: Boolean, onClick: () -> Unit, o
             confirmButton = {
                 Button(
                     onClick = { onDelete(); confirm = false },
-                    modifier = Modifier.focusable(),
                     colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
                 ) { Text("Xoá") }
             },
-            dismissButton = { TextButton(onClick = { confirm = false }, modifier = Modifier.focusable()) { Text("Huỷ", color = TextMuted) } },
+            dismissButton = { TextButton(onClick = { confirm = false }) { Text("Huỷ", color = TextMuted) } },
         )
     }
 
@@ -150,7 +146,6 @@ private fun PlaylistItem(pl: Playlist, selected: Boolean, onClick: () -> Unit, o
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
             .background(if (focused) Purple.copy(alpha = 0.25f) else if (selected) Purple.copy(alpha = 0.18f) else BgVariant)
-            .focusable()
             .onFocusChanged { focused = it.isFocused }
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 8.dp),
@@ -159,7 +154,7 @@ private fun PlaylistItem(pl: Playlist, selected: Boolean, onClick: () -> Unit, o
         Icon(Icons.Default.QueueMusic, null, tint = if (selected || focused) Purple else TextMuted, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(8.dp))
         Text(pl.name, color = if (selected || focused) Purple else TextPrimary, style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f), maxLines = 1)
-        IconButton(onClick = { confirm = true }, modifier = Modifier.size(28.dp).focusable()) {
+        IconButton(onClick = { confirm = true }, modifier = Modifier.size(28.dp)) {
             Icon(Icons.Default.DeleteOutline, null, tint = TextMuted.copy(alpha = 0.4f), modifier = Modifier.size(14.dp))
         }
     }
@@ -177,18 +172,16 @@ private fun CreateDialog(onConfirm: (String) -> Unit, onDismiss: () -> Unit) {
                 value = name, onValueChange = { name = it },
                 placeholder = { Text("Tên playlist…", color = TextMuted) },
                 singleLine  = true,
-                modifier = Modifier.focusable(),
                 colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = Purple, focusedTextColor = TextPrimary, unfocusedTextColor = TextPrimary),
             )
         },
         confirmButton = {
             Button(
                 onClick = { if (name.isNotBlank()) onConfirm(name.trim()) },
-                modifier = Modifier.focusable(),
                 colors = ButtonDefaults.buttonColors(containerColor = Purple),
             ) { Text("Tạo") }
         },
-        dismissButton = { TextButton(onClick = onDismiss, modifier = Modifier.focusable()) { Text("Huỷ", color = TextMuted) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text("Huỷ", color = TextMuted) } },
     )
 }
 

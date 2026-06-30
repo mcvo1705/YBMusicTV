@@ -1,16 +1,20 @@
 package com.ybmusic.tv.ui.screen
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.focusGroup
+import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.*
 import com.ybmusic.tv.ui.MainViewModel
 import com.ybmusic.tv.ui.theme.*
@@ -39,21 +43,31 @@ fun SettingsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
         SettingSection(title = "Chất lượng audio") {
             val opts = listOf("high" to "Cao (opus 160kbps)", "medium" to "Trung bình (128kbps)", "low" to "Thấp (64kbps)")
             opts.forEach { (key, label) ->
+                // MỘT focus target duy nhất: cả hàng là .selectable (RadioButton
+                // onClick=null để không tạo focus node thứ hai). Highlight nền theo
+                // focus để remote luôn thấy rõ đang ở dòng nào.
+                var focused by remember { mutableStateOf(false) }
                 Row(
                     Modifier
                         .fillMaxWidth()
-                        .focusable()
-                        .selectable(selected = quality == key, onClick = { vm.setAudioQuality(key) })
-                        .padding(vertical = 6.dp),
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(if (focused) Purple.copy(alpha = 0.20f) else Color.Transparent)
+                        .onFocusChanged { focused = it.isFocused }
+                        .selectable(
+                            selected = quality == key,
+                            onClick  = { vm.setAudioQuality(key) },
+                            role     = Role.RadioButton,
+                        )
+                        .padding(horizontal = 8.dp, vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     RadioButton(
                         selected = quality == key,
-                        onClick  = { vm.setAudioQuality(key) },
+                        onClick  = null,
                         colors   = RadioButtonDefaults.colors(selectedColor = Purple),
                     )
                     Spacer(Modifier.width(8.dp))
-                    Text(label, color = TextPrimary, style = MaterialTheme.typography.bodyLarge)
+                    Text(label, color = if (focused) Purple else TextPrimary, style = MaterialTheme.typography.bodyLarge)
                 }
             }
         }
@@ -62,18 +76,31 @@ fun SettingsScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
 
         // Cache
         SettingSection(title = "Bộ nhớ đệm") {
+            // Cả hàng là một .toggleable target duy nhất (Switch onCheckedChange=null);
+            // DPAD_CENTER trên hàng sẽ bật/tắt, có highlight nền theo focus.
+            var cacheFocused by remember { mutableStateOf(false) }
             Row(
-                Modifier.fillMaxWidth().focusable(),
+                Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(if (cacheFocused) Purple.copy(alpha = 0.20f) else Color.Transparent)
+                    .onFocusChanged { cacheFocused = it.isFocused }
+                    .toggleable(
+                        value         = cacheUrls,
+                        onValueChange = { vm.setCacheUrls(it) },
+                        role          = Role.Switch,
+                    )
+                    .padding(8.dp),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Column {
-                    Text("Cache stream URL", color = TextPrimary, style = MaterialTheme.typography.bodyLarge)
+                    Text("Cache stream URL", color = if (cacheFocused) Purple else TextPrimary, style = MaterialTheme.typography.bodyLarge)
                     Text("Lưu URL 2 giờ để tránh tải lại", color = TextMuted, style = MaterialTheme.typography.bodySmall)
                 }
                 Switch(
                     checked  = cacheUrls,
-                    onCheckedChange = { vm.setCacheUrls(it) },
+                    onCheckedChange = null,
                     colors   = SwitchDefaults.colors(checkedThumbColor = Purple, checkedTrackColor = Purple.copy(alpha = 0.4f)),
                 )
             }

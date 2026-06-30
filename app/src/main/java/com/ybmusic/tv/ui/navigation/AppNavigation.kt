@@ -8,7 +8,6 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -114,9 +113,9 @@ fun AppNavigation(vm: MainViewModel) {
 
 /**
  * Sidebar tự code thay cho NavigationRail.
- * Mỗi item là 1 Row có .focusable() rõ ràng + key handler riêng (Enter/DPAD_CENTER
- * để chọn) — đúng pattern Android TV thay vì dựa vào ripple/click của Material
- * components (vốn build cho touch, không cho remote).
+ * Mỗi item là 1 Row .clickable (MỘT focus target duy nhất) + key handler riêng
+ * (Enter/DPAD_CENTER để chọn) — đúng pattern Android TV thay vì dựa vào
+ * ripple/click của Material components (vốn build cho touch, không cho remote).
  */
 @Composable
 private fun TvSidebar(
@@ -199,10 +198,10 @@ private fun SidebarItem(
             .clip(RoundedCornerShape(10.dp))
             .background(bg)
             .border(2.dp, borderColor, RoundedCornerShape(10.dp))
-            // focusable() là bắt buộc — không có nó, item này không nằm trong
-            // focus tree và DPAD sẽ nhảy qua, gây crash performFocusNavigation
-            // khi Compose không tìm được next focus target hợp lệ.
-            .focusable()
+            // .onFocusChanged đặt NGAY TRƯỚC .clickable để bám đúng trạng thái
+            // focus của node clickable. .clickable đã tự là một focus target nên
+            // KHÔNG thêm .focusable() — hai focus node chồng nhau cùng vùng sẽ
+            // khiến DPAD phải nhấn 2 lần và highlight lệch pha với item thật.
             .onFocusChanged { state ->
                 focused = state.isFocused
                 // Điều hướng YouTube TV style: chỉ cần DPAD di chuyển focus

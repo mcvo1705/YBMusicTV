@@ -2,7 +2,6 @@ package com.ybmusic.tv.ui.screen
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -15,6 +14,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.foundation.focusGroup
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
@@ -72,17 +72,28 @@ fun SearchScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
 
         Spacer(Modifier.height(20.dp))
 
-        // Search bar — focusable() rõ ràng để nằm trong focus tree dù chưa gõ gì
+        // Search bar — OutlinedTextField tự là một focus target; KHÔNG thêm
+        // .focusable() (sẽ tạo focus node thứ hai khiến phải nhấn DPAD 2 lần và
+        // focus "rỗng" không mở bàn phím).
         OutlinedTextField(
             value       = query,
             onValueChange = vm::onQueryChanged,
             modifier    = Modifier
                 .fillMaxWidth()
-                .focusable()
-                .onKeyEvent { e ->
-                    if (e.key == Key.Enter && e.type == KeyEventType.KeyUp) {
-                        vm.search(); focus.clearFocus(); true
-                    } else false
+                // TextField trên Android TV "bẫy" DPAD (tự tiêu thụ key để di chuyển
+                // con trỏ), nên DPAD_DOWN không thoát xuống danh sách được. Dùng
+                // onPreviewKeyEvent để chặn TRƯỚC: DPAD_DOWN → chuyển focus xuống
+                // toolbar/list; Enter → tìm kiếm.
+                .onPreviewKeyEvent { e ->
+                    when {
+                        e.type == KeyEventType.KeyDown && e.key == Key.DirectionDown -> {
+                            focus.moveFocus(FocusDirection.Down); true
+                        }
+                        e.type == KeyEventType.KeyUp && e.key == Key.Enter -> {
+                            vm.search(); focus.clearFocus(); true
+                        }
+                        else -> false
+                    }
                 },
             placeholder = { Text("Tìm bài hát hoặc dán link YouTube…", color = TextMuted) },
             leadingIcon = { Icon(Icons.Default.Search, null, tint = Purple) },
@@ -137,7 +148,6 @@ fun SearchScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                     OutlinedButton(
                                         onClick = { vm.playAll(tracks) },
-                                        modifier = Modifier.focusable(),
                                         border = ButtonDefaults.outlinedButtonBorder,
                                     ) {
                                         Icon(Icons.Default.PlayArrow, null, tint = Purple, modifier = Modifier.size(18.dp))
@@ -146,7 +156,6 @@ fun SearchScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
                                     }
                                     OutlinedButton(
                                         onClick = { vm.playShuffle(tracks) },
-                                        modifier = Modifier.focusable(),
                                         border = ButtonDefaults.outlinedButtonBorder,
                                     ) {
                                         Icon(Icons.Default.Shuffle, null, tint = Purple, modifier = Modifier.size(18.dp))
@@ -233,7 +242,7 @@ private fun AddToPlaylistDialog(
                 Text("\"${track.title}\"", color = TextMuted, style = MaterialTheme.typography.bodySmall, maxLines = 2)
                 HorizontalDivider(color = BgVariant)
                 playlists.forEach { pl ->
-                    TextButton(onClick = { onAdd(pl.id) }, modifier = Modifier.fillMaxWidth().focusable()) {
+                    TextButton(onClick = { onAdd(pl.id) }, modifier = Modifier.fillMaxWidth()) {
                         Icon(Icons.Default.PlaylistAdd, null, tint = Purple)
                         Spacer(Modifier.width(8.dp))
                         Text(pl.name, color = TextPrimary)
@@ -245,7 +254,6 @@ private fun AddToPlaylistDialog(
                         onValueChange = { newName = it },
                         placeholder = { Text("Tên playlist mới", color = TextMuted) },
                         singleLine = true,
-                        modifier = Modifier.focusable(),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = Purple,
                             focusedTextColor   = TextPrimary,
@@ -255,11 +263,10 @@ private fun AddToPlaylistDialog(
                     Spacer(Modifier.height(4.dp))
                     Button(
                         onClick = { if (newName.isNotBlank()) onCreate(newName.trim()) },
-                        modifier = Modifier.focusable(),
                         colors  = ButtonDefaults.buttonColors(containerColor = Purple),
                     ) { Text("Tạo & thêm") }
                 } else {
-                    TextButton(onClick = { showCreate = true }, modifier = Modifier.focusable()) {
+                    TextButton(onClick = { showCreate = true }) {
                         Icon(Icons.Default.Add, null, tint = Purple)
                         Spacer(Modifier.width(4.dp))
                         Text("Tạo playlist mới", color = Purple)
@@ -268,6 +275,6 @@ private fun AddToPlaylistDialog(
             }
         },
         confirmButton  = {},
-        dismissButton  = { TextButton(onClick = onDismiss, modifier = Modifier.focusable()) { Text("Đóng", color = TextMuted) } },
+        dismissButton  = { TextButton(onClick = onDismiss) { Text("Đóng", color = TextMuted) } },
     )
 }

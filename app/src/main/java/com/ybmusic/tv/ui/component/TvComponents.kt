@@ -3,7 +3,6 @@ package com.ybmusic.tv.ui.component
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -99,8 +98,8 @@ fun TrackCard(
                 Text(formatDuration(track.durationSeconds), style = MaterialTheme.typography.bodySmall, color = TextMuted.copy(alpha = 0.6f))
         }
 
-        // Add to playlist — chỉ hiện khi focused, nhưng vẫn cần .focusable() riêng
-        // vì nó là 1 target focus độc lập bên trong Row đã focusable (nested focus).
+        // Add to playlist — chỉ hiện khi item đang focus; TvIconBtn tự là một
+        // focus target (qua .clickable) nên DPAD_RIGHT sẽ tới được nút này.
         if (focused && onAddToPlaylist != null) {
             TvIconBtn(Icons.Default.PlaylistAdd, onAddToPlaylist, tint = Purple)
         }
@@ -110,12 +109,10 @@ fun TrackCard(
 // ─── MiniPlayer ───────────────────────────────────────────────────────────────
 
 /**
- * focusGroup() ở Row chứa các nút điều khiển: đây chính là khu vực được liệt
- * kê là "hay gây crash focus nếu click remote" trong yêu cầu fix. Nguyên nhân
- * gốc là các IconButton/Box clickable không có .focusable() rõ ràng nằm cạnh
- * nhau — Compose không biết thứ tự traversal khi nhấn DPAD_LEFT/RIGHT giữa
- * các nút play/pause/next/prev. focusGroup() + .focusable() trên từng nút
- * giải quyết dứt điểm.
+ * focusGroup() ở Row chứa các nút điều khiển gom chúng thành một nhóm focus,
+ * giúp Compose biết thứ tự traversal khi nhấn DPAD_LEFT/RIGHT giữa các nút
+ * mode/prev/play-pause/next. Mỗi nút chỉ có MỘT focus target (qua .clickable),
+ * không chồng thêm .focusable() — tránh lệch highlight và phải nhấn 2 lần.
  */
 @Composable
 fun MiniPlayer(
@@ -189,9 +186,8 @@ fun MiniPlayer(
 
                     TvIconBtn(Icons.Default.SkipPrevious, onPrev)
 
-                    // Play / Pause — big circle, .focusable() rõ ràng thay vì chỉ
-                    // dựa vào .clickable() (clickable không tự thêm vào focus tree
-                    // một cách nhất quán trên mọi phiên bản Compose).
+                    // Play / Pause — big circle. .onFocusChanged trước .clickable để
+                    // highlight bám đúng focus của node clickable (một focus target).
                     var playPauseFocused by remember { mutableStateOf(false) }
                     Box(
                         Modifier
@@ -224,10 +220,10 @@ fun MiniPlayer(
 // ─── TvIconBtn ────────────────────────────────────────────────────────────────
 
 /**
- * Wrapper chuẩn cho mọi icon button trên TV: luôn có .focusable() rõ ràng +
- * highlight màu Purple khi focused, để người dùng remote luôn biết đang ở
- * đâu trên màn hình — nguyên tắc UX bắt buộc của Android TV (không có con trỏ
- * chuột nên focus highlight là tín hiệu duy nhất).
+ * Wrapper chuẩn cho mọi icon button trên TV: MỘT focus target qua .clickable +
+ * highlight màu Purple khi focused (.onFocusChanged đặt trước .clickable), để
+ * người dùng remote luôn biết đang ở đâu — focus highlight là tín hiệu duy nhất
+ * trên Android TV (không có con trỏ chuột).
  */
 @Composable
 fun TvIconBtn(icon: ImageVector, onClick: () -> Unit, tint: Color = TextPrimary) {
@@ -260,6 +256,6 @@ fun ErrorBox(msg: String, onRetry: (() -> Unit)? = null, modifier: Modifier = Mo
         Icon(Icons.Default.ErrorOutline, null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(48.dp))
         Text(msg, color = TextMuted, style = MaterialTheme.typography.bodyLarge)
         if (onRetry != null)
-            Button(onClick = onRetry, modifier = Modifier.focusable(), colors = ButtonDefaults.buttonColors(containerColor = Purple)) { Text("Thử lại") }
+            Button(onClick = onRetry, colors = ButtonDefaults.buttonColors(containerColor = Purple)) { Text("Thử lại") }
     }
 }
