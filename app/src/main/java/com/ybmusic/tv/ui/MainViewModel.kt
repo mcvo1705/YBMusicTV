@@ -1,5 +1,6 @@
 package com.ybmusic.tv.ui
 
+import android.util.Log
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.ybmusic.tv.core.player.PlayerController
@@ -13,6 +14,8 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+private const val TAG = "Playback/ViewModel"
 
 @HiltViewModel
 class MainViewModel @Inject constructor(
@@ -30,8 +33,19 @@ class MainViewModel @Inject constructor(
     fun seekTo(ms: Long)  = player.seekTo(ms)
     fun cyclePlayMode()   = player.cyclePlayMode()
 
-    fun playAll(tracks: List<Track>, startIndex: Int = 0) = player.playQueue(tracks, startIndex)
-    fun playShuffle(tracks: List<Track>) = player.playQueue(tracks.shuffled(), 0)
+    fun playAll(tracks: List<Track>, startIndex: Int = 0) {
+        // Điểm vào của một cú click TrackCard → playback. Log để biết chắc click
+        // đã tới được lớp player, kèm bài được chọn.
+        val sel = tracks.getOrNull(startIndex)
+        Log.d(TAG, "playAll(size=${tracks.size}, startIndex=$startIndex) " +
+            "selected videoId=${sel?.id} title='${sel?.title}'")
+        player.playQueue(tracks, startIndex)
+    }
+
+    fun playShuffle(tracks: List<Track>) {
+        Log.d(TAG, "playShuffle(size=${tracks.size})")
+        player.playQueue(tracks.shuffled(), 0)
+    }
 
     // ── Search ────────────────────────────────────────────────────────────────
     private val _query = MutableStateFlow("")

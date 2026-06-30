@@ -17,6 +17,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 private const val TAG = "YouTubeSource"
+private const val STREAM_TAG = "Playback/Stream"
 
 /** Một trang kết quả tìm kiếm + cờ cho biết còn trang sau (continuation) hay không. */
 data class SearchPage(val tracks: List<Track>, val hasMore: Boolean)
@@ -74,9 +75,16 @@ class YouTubeSource @Inject constructor() {
 
     // ── Audio stream URL ──────────────────────────────────────────────────────
     suspend fun streamUrl(videoId: String): String = withContext(Dispatchers.IO) {
-        cache[videoId]?.let { if (it.expiresAt > System.currentTimeMillis()) return@withContext it.url }
+        cache[videoId]?.let {
+            if (it.expiresAt > System.currentTimeMillis()) {
+                Log.d(STREAM_TAG, "streamUrl($videoId): CACHE HIT")
+                return@withContext it.url
+            }
+        }
 
+        Log.d(STREAM_TAG, "streamUrl($videoId): fetching StreamInfo from NewPipe…")
         val info = StreamInfo.getInfo(YouTube, "https://www.youtube.com/watch?v=$videoId")
+        Log.d(STREAM_TAG, "streamUrl($videoId): '${info.name}' — ${info.audioStreams.size} audio stream(s)")
 
         // ExoPlayer (progressive MediaItem) chỉ phát được URL tải trực tiếp, KHÔNG
         // phát được manifest DASH/HLS. Vì vậy chỉ chọn trong các audio stream có
@@ -86,6 +94,7 @@ class YouTubeSource @Inject constructor() {
         }
         if (progressive.isEmpty()) {
             val kinds = info.audioStreams.joinToString { "${it.format?.name}/${it.deliveryMethod}" }
+            Log.e(STREAM_TAG, "streamUrl($videoId): NO progressive audio stream (available: [$kinds])")
             error("No progressive audio stream for $videoId (available: [$kinds])")
         }
 
@@ -100,7 +109,9 @@ class YouTubeSource @Inject constructor() {
         }!!
 
         val url = best.content!!
-        Log.d(TAG, "streamUrl($videoId): ${best.format?.name} ${best.averageBitrate}kbps progressive")
+        Log.d(STREAM_TAG, "streamUrl($videoId): selected ${best.format?.name} " +
+            "${best.averageBitrate}kbps progressive codec=${best.codec}")
+        Log.d(STREAM_TAG, "streamUrl($videoId): URL (len=${url.length}) ${url.take(100)}…")
         cache[videoId] = Cached(url, System.currentTimeMillis() + TTL_MS)
         url
     }

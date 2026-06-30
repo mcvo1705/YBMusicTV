@@ -29,7 +29,16 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private const val TAG = "PlayerController"
+private const val TAG = "Playback/Controller"
+
+/** Tên đọc được cho các hằng số Player.STATE_* để log rõ ràng. */
+private fun playbackStateName(state: Int): String = when (state) {
+    Player.STATE_IDLE      -> "IDLE"
+    Player.STATE_BUFFERING -> "BUFFERING"
+    Player.STATE_READY     -> "READY"
+    Player.STATE_ENDED     -> "ENDED"
+    else                   -> "UNKNOWN($state)"
+}
 
 @Singleton
 class PlayerController @Inject constructor(
@@ -47,6 +56,7 @@ class PlayerController @Inject constructor(
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     fun connect() {
+        Log.d(TAG, "connect(): binding MediaController to PlaybackService…")
         val token = SessionToken(ctx, ComponentName(ctx, PlaybackService::class.java))
         val future = MediaController.Builder(ctx, token).buildAsync()
         future.addListener(
@@ -55,7 +65,8 @@ class PlayerController @Inject constructor(
                     ctrl = future.get()
                     attachListener()
                     startProgress()
-                }.onFailure { Log.e(TAG, "connect failed: ${it.message}") }
+                    Log.d(TAG, "connect(): MediaController connected")
+                }.onFailure { Log.e(TAG, "connect(): failed to bind MediaController: ${it.message}", it) }
             },
             ContextCompat.getMainExecutor(ctx),
         )
@@ -70,8 +81,12 @@ class PlayerController @Inject constructor(
     // ── Queue ─────────────────────────────────────────────────────────────────
 
     fun playQueue(tracks: List<Track>, startIndex: Int = 0) {
-        if (tracks.isEmpty()) return
+        if (tracks.isEmpty()) {
+            Log.w(TAG, "playQueue(): empty track list, ignoring")
+            return
+        }
         val idx = startIndex.coerceIn(0, tracks.lastIndex)
+        Log.d(TAG, "playQueue(size=${tracks.size}, startIndex=$startIndex -> $idx)")
         _state.value = _state.value.copy(queue = tracks, queueIndex = idx)
         scope.launch { playAt(idx) }
     }
@@ -112,9 +127,20 @@ class PlayerController @Inject constructor(
     // ── Internal ──────────────────────────────────────────────────────────────
 
     private suspend fun playAt(index: Int) {
-        val track = _state.value.queue.getOrNull(index) ?: return
-        val c     = ctrl ?: return
+        val track = _state.value.queue.getOrNull(index) ?: run {
+            Log.w(TAG, "playAt($index): no track at index (queue=${_state.value.queue.size})")
+            return
+        }
+        val c = ctrl ?: run {
+            // MediaController chưa connect xong — đây là lý do hay gặp khi
+            // "click TrackCard nhưng không phát". Log rõ để phân biệt.
+            Log.e(TAG, "playAt($index): MediaController NOT connected; cannot play " +
+                "videoId=${track.id} '${track.title}'")
+            _state.value = _state.value.copy(isBuffering = false, error = "Player chưa sẵn sàng")
+            return
+        }
 
+        Log.d(TAG, "playAt(index=$index) START videoId=${track.id} title='${track.title}'")
         _state.value = _state.value.copy(
             currentTrack = track,
             isBuffering  = true,
@@ -123,7 +149,9 @@ class PlayerController @Inject constructor(
         )
 
         runCatching {
+            Log.d(TAG, "  [1/4] resolving stream URL for videoId=${track.id}")
             val url  = repo.streamUrl(track.id)
+            Log.d(TAG, "  [2/4] stream URL ok (len=${url.length}): ${url.take(100)}…")
             val item = MediaItem.Builder()
                 .setUri(url)
                 .setMediaMetadata(
@@ -135,16 +163,22 @@ class PlayerController @Inject constructor(
                 )
                 .build()
 
+            Log.d(TAG, "  [3/4] setMediaItem() + prepare()")
             c.setMediaItem(item)
             c.prepare()
+            Log.d(TAG, "  [4/4] play()")
             c.play()
+            Log.d(TAG, "playAt(index=$index) commands issued for videoId=${track.id}")
 
             // Prefetch next track URL
             _state.value.queue.getOrNull(index + 1)?.let { next ->
-                scope.launch(Dispatchers.IO) { runCatching { repo.streamUrl(next.id) } }
+                scope.launch(Dispatchers.IO) {
+                    runCatching { repo.streamUrl(next.id) }
+                        .onFailure { Log.w(TAG, "prefetch next (${next.id}) failed: ${it.message}") }
+                }
             }
         }.onFailure { e ->
-            Log.e(TAG, "playAt($index): ${e.message}")
+            Log.e(TAG, "playAt($index) FAILED for videoId=${track.id}: ${e.message}", e)
             _state.value = _state.value.copy(isBuffering = false, error = e.message)
         }
     }
@@ -152,16 +186,22 @@ class PlayerController @Inject constructor(
     private fun attachListener() {
         ctrl?.addListener(object : Player.Listener {
             override fun onIsPlayingChanged(playing: Boolean) {
+                Log.d(TAG, "Listener.onIsPlayingChanged → $playing")
                 _state.value = _state.value.copy(isPlaying = playing)
             }
             override fun onPlaybackStateChanged(state: Int) {
+                Log.d(TAG, "Listener.onPlaybackStateChanged → ${playbackStateName(state)}")
                 _state.value = _state.value.copy(isBuffering = state == Player.STATE_BUFFERING)
                 if (state == Player.STATE_ENDED) playNext()
+            }
+            override fun onMediaItemTransition(item: MediaItem?, reason: Int) {
+                Log.d(TAG, "Listener.onMediaItemTransition → '${item?.mediaMetadata?.title}' reason=$reason")
             }
             override fun onPlayerError(error: PlaybackException) {
                 // Lỗi phát (vd: 403 từ CDN, codec không hỗ trợ) — log rõ lý do và
                 // hiện cho người dùng thay vì "đứng hình" im lặng.
-                Log.e(TAG, "player error [${error.errorCodeName}]: ${error.message}", error)
+                Log.e(TAG, "Listener.onPlayerError [${error.errorCodeName}] (code=${error.errorCode}): " +
+                    "${error.message}", error)
                 _state.value = _state.value.copy(
                     isBuffering = false,
                     isPlaying   = false,
