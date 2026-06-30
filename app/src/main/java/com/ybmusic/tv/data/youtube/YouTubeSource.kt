@@ -106,24 +106,43 @@ class YouTubeSource @Inject constructor() {
             val progressive = info.audioStreams.filter {
                 it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP && !it.content.isNullOrEmpty()
             }
-            if (progressive.isEmpty()) {
-                val kinds = info.audioStreams.joinToString { "${it.format?.name}/${it.deliveryMethod}" }
-                error("No progressive audio stream for $videoId (available: [$kinds])")
+
+            val url: String
+            if (progressive.isNotEmpty()) {
+                // Ưu tiên opus (nhỏ, chất lượng tốt) → mp4a → bất kỳ
+                val best = progressive.maxByOrNull { s ->
+                    val codec = when {
+                        s.codec?.contains("opus", true) == true -> 10_000
+                        s.codec?.contains("mp4a", true) == true ->  5_000
+                        else -> 0
+                    }
+                    codec + (if (s.averageBitrate > 0) s.averageBitrate else s.bitrate).coerceAtMost(160)
+                }!!
+                url = best.content!!
+                Log.d(STREAM_TAG, "streamUrl($videoId): selected ${best.format?.name} " +
+                    "${best.averageBitrate}kbps progressive audio codec=${best.codec}")
+            } else {
+                // YouTube đang siết SABR (server-side adaptive bitrate): nhiều video chỉ
+                // còn trả về 1 file MP4 progressive đã muxed sẵn audio+video (thường
+                // 360p), không còn audio-only stream riêng. ExoPlayer vẫn phát được file
+                // này, chỉ tốn băng thông hơn vì tải kèm video không dùng tới. Lấy
+                // resolution thấp nhất để giảm lãng phí.
+                val videoProgressive = info.videoStreams.filter {
+                    it.deliveryMethod == DeliveryMethod.PROGRESSIVE_HTTP && !it.content.isNullOrEmpty()
+                }
+                if (videoProgressive.isEmpty()) {
+                    val kinds = (info.audioStreams + info.videoStreams)
+                        .joinToString { "${it.format?.name}/${it.deliveryMethod}" }
+                    error("No progressive audio or video+audio stream for $videoId (available: [$kinds])")
+                }
+                val fallback = videoProgressive.minByOrNull {
+                    it.resolution?.filter(Char::isDigit)?.toIntOrNull() ?: Int.MAX_VALUE
+                }!!
+                url = fallback.content!!
+                Log.w(STREAM_TAG, "streamUrl($videoId): NO audio-only stream (SABR?), " +
+                    "falling back to muxed video '${fallback.resolution}' ${fallback.format?.name}")
             }
 
-            // Ưu tiên opus (nhỏ, chất lượng tốt) → mp4a → bất kỳ
-            val best = progressive.maxByOrNull { s ->
-                val codec = when {
-                    s.codec?.contains("opus", true) == true -> 10_000
-                    s.codec?.contains("mp4a", true) == true ->  5_000
-                    else -> 0
-                }
-                codec + (if (s.averageBitrate > 0) s.averageBitrate else s.bitrate).coerceAtMost(160)
-            }!!
-
-            val url = best.content!!
-            Log.d(STREAM_TAG, "streamUrl($videoId): selected ${best.format?.name} " +
-                "${best.averageBitrate}kbps progressive codec=${best.codec}")
             Log.d(STREAM_TAG, "streamUrl($videoId): URL (len=${url.length}) ${url.take(100)}…")
             cache[videoId] = Cached(url, System.currentTimeMillis() + TTL_MS)
             url
