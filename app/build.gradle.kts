@@ -1,3 +1,7 @@
+import com.android.build.api.instrumentation.FramesComputationMode
+import com.android.build.api.instrumentation.InstrumentationScope
+import com.ybmusic.tv.build.NewPipeUrlEncoderFix
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -50,6 +54,16 @@ android {
 
     buildFeatures { compose = true }
 
+    lint {
+        // NonNullableMutableLiveDataDetector (check "NullSafeMutableLiveData")
+        // bị crash với lint đi kèm AGP 8.7.3 + Kotlin 2.0.21 K2 UAST
+        // (IncompatibleClassChangeError / "Found class ... but interface was
+        // expected"). Đây là lỗi của chính lint, không phải code app, nhưng nó
+        // làm task lintVitalRelease fail và chặn assembleRelease. Tắt riêng
+        // detector lỗi này để build release chạy được.
+        disable += "NullSafeMutableLiveData"
+    }
+
     packaging {
         resources {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
@@ -57,6 +71,20 @@ android {
             excludes += "META-INF/LICENSE.md"
             excludes += "META-INF/LICENSE-notice.md"
         }
+    }
+}
+
+// Áp dụng bytecode fix cho NewPipe Utils (xem NewPipeUrlEncoderFix) trên mọi
+// build type. InstrumentationScope.ALL để bao gồm cả class trong dependency.
+androidComponents {
+    onVariants { variant ->
+        variant.instrumentation.transformClassesWith(
+            NewPipeUrlEncoderFix::class.java,
+            InstrumentationScope.ALL,
+        ) {}
+        variant.instrumentation.setAsmFramesComputationMode(
+            FramesComputationMode.COPY_FRAMES,
+        )
     }
 }
 

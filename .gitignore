@@ -1,0 +1,14 @@
+*.iml
+.gradle/
+.idea/
+.DS_Store
+/local.properties
+/captures
+.externalNativeBuild
+.cxx
+
+# Gradle build outputs (chỉ thư mục build ở gốc module, tránh match package
+# nguồn cũng tên "build" như buildSrc/.../tv/build)
+/build/
+/app/build/
+/buildSrc/build/
