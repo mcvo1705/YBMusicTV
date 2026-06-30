@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">YB Music</string>
+    <string name="search_hint">Tìm bài hát hoặc dán link YouTube…</string>
+    <string name="no_results">Không tìm thấy kết quả</string>
+    <string name="play_all">Phát tất cả</string>
+    <string name="shuffle">Ngẫu nhiên</string>
+    <string name="add_to_playlist">Thêm vào playlist</string>
+    <string name="create_playlist">Tạo playlist</string>
+    <string name="delete_playlist">Xoá playlist</string>
+    <string name="settings">Cài đặt</string>
+</resources>

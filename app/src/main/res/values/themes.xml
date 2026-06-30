@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!--
+        Theme.Leanback đã bị loại bỏ khỏi Android SDK (không tồn tại ở
+        compileSdk 35), gây lỗi AAPT: "resource android:style/Theme.Leanback
+        not found" khi build.
+
+        Dùng Theme.AppCompat.NoActionBar làm parent — đã có sẵn qua
+        dependency androidx.appcompat trong app/build.gradle.kts, hoạt động
+        tốt cho TV (fullscreen, không title bar) mà không phụ thuộc resource
+        đã bị gỡ.
+    -->
+    <style name="Theme.YBMusicTV" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">@color/bg_dark</item>
+        <item name="android:windowNoTitle">true</item>
+        <item name="android:windowFullscreen">true</item>
+        <item name="android:windowContentOverlay">@null</item>
+    </style>
+</resources>
