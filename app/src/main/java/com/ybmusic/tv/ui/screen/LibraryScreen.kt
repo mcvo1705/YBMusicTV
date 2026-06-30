@@ -1,5 +1,7 @@
 package com.ybmusic.tv.ui.screen
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -104,8 +106,15 @@ fun LibraryScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
                         }
                     }
                     Spacer(Modifier.height(14.dp))
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        itemsIndexed(tracks, key = { _, t -> t.id }) { idx, track ->
+                    LazyColumn(
+                        verticalArrangement = Arrangement.spacedBy(2.dp),
+                        contentPadding = PaddingValues(vertical = 4.dp, horizontal = 2.dp),
+                    ) {
+                        itemsIndexed(
+                            tracks,
+                            key         = { _, t -> t.id },
+                            contentType = { _, _ -> "track" },
+                        ) { idx, track ->
                             TrackCard(
                                 track    = track,
                                 isPlaying = playerState.currentTrack?.id == track.id,
@@ -141,11 +150,18 @@ private fun PlaylistItem(pl: Playlist, selected: Boolean, onClick: () -> Unit, o
         )
     }
 
+    val targetBg = when {
+        focused  -> Purple.copy(alpha = 0.25f)
+        selected -> Purple.copy(alpha = 0.18f)
+        else     -> BgVariant
+    }
+    val bg by animateColorAsState(targetBg, tween(150), label = "playlistBg")
+
     Row(
         Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(8.dp))
-            .background(if (focused) Purple.copy(alpha = 0.25f) else if (selected) Purple.copy(alpha = 0.18f) else BgVariant)
+            .background(bg)
             .onFocusChanged { focused = it.isFocused }
             .clickable(onClick = onClick)
             .padding(horizontal = 10.dp, vertical = 8.dp),

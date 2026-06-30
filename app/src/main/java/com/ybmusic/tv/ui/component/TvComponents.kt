@@ -1,7 +1,11 @@
 package com.ybmusic.tv.ui.component
 
+import androidx.compose.animation.animateColorAsState
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.CircleShape
@@ -15,11 +19,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.painter.ColorPainter
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.*
+import androidx.compose.ui.zIndex
 import coil.compose.AsyncImage
+import coil.request.ImageRequest
 import com.ybmusic.tv.core.util.formatDuration
 import com.ybmusic.tv.data.model.PlayMode
 import com.ybmusic.tv.data.model.PlayerState
@@ -45,17 +54,30 @@ fun TrackCard(
     modifier: Modifier = Modifier,
 ) {
     var focused by remember { mutableStateOf(false) }
-    val bg = when {
+
+    // Selection effect kiểu SmartTube / YouTube TV: nền + viền + phóng nhẹ khi
+    // focus, đổi mượt qua animateColorAsState/animateFloatAsState thay vì nhảy
+    // tức thời. scale chỉ ~1.02 để hàng không đè lên nhau.
+    val targetBg = when {
         isPlaying -> Purple.copy(alpha = 0.20f)
         focused   -> BgVariant
         else      -> Color.Transparent
     }
+    val bg     by animateColorAsState(targetBg, tween(150), label = "trackBg")
+    val border by animateColorAsState(
+        if (focused) Purple else Color.Transparent, tween(150), label = "trackBorder",
+    )
+    val scale  by animateFloatAsState(if (focused) 1.02f else 1f, tween(150), label = "trackScale")
 
     Row(
         modifier = modifier
             .fillMaxWidth()
+            // zIndex để item đang focus (phóng to) vẽ đè lên hàng kế, không bị cắt.
+            .zIndex(if (focused) 1f else 0f)
+            .graphicsLayer { scaleX = scale; scaleY = scale }
             .clip(RoundedCornerShape(10.dp))
             .background(bg)
+            .border(2.dp, border, RoundedCornerShape(10.dp))
             .onFocusChanged { focused = it.isFocused }
             .clickable(onClick = onPlay)
             .padding(horizontal = 12.dp, vertical = 8.dp)
@@ -67,10 +89,8 @@ fun TrackCard(
         Box(
             Modifier.size(68.dp).clip(RoundedCornerShape(8.dp)),
         ) {
-            AsyncImage(
-                model = track.thumbnailUrl,
-                contentDescription = null,
-                contentScale = ContentScale.Crop,
+            TvAsyncImage(
+                url = track.thumbnailUrl,
                 modifier = Modifier.fillMaxSize(),
             )
             if (isPlaying) {
@@ -130,12 +150,22 @@ fun MiniPlayer(
             // Progress bar — không tương tác, không cần focusable
             val progress = if (state.durationMs > 0)
                 (state.positionMs.toFloat() / state.durationMs).coerceIn(0f, 1f) else 0f
-            LinearProgressIndicator(
-                progress    = { progress },
-                modifier    = Modifier.fillMaxWidth(),
-                color       = Purple,
-                trackColor  = BgVariant,
-            )
+            // Khi đang buffer chưa biết thời lượng → thanh chạy vô hạn để báo
+            // "đang tải"; khi đã phát được → thanh tiến trình theo vị trí.
+            if (state.isBuffering && state.durationMs <= 0) {
+                LinearProgressIndicator(
+                    modifier   = Modifier.fillMaxWidth(),
+                    color      = Purple,
+                    trackColor = BgVariant,
+                )
+            } else {
+                LinearProgressIndicator(
+                    progress    = { progress },
+                    modifier    = Modifier.fillMaxWidth(),
+                    color       = Purple,
+                    trackColor  = BgVariant,
+                )
+            }
 
             Row(
                 Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 10.dp),
@@ -143,10 +173,8 @@ fun MiniPlayer(
                 horizontalArrangement = Arrangement.spacedBy(14.dp),
             ) {
                 // Art — không tương tác
-                AsyncImage(
-                    model = track.thumbnailUrl,
-                    contentDescription = null,
-                    contentScale = ContentScale.Crop,
+                TvAsyncImage(
+                    url = track.thumbnailUrl,
                     modifier = Modifier.size(48.dp).clip(RoundedCornerShape(6.dp)),
                 )
 
@@ -228,17 +256,42 @@ fun MiniPlayer(
 @Composable
 fun TvIconBtn(icon: ImageVector, onClick: () -> Unit, tint: Color = TextPrimary) {
     var focused by remember { mutableStateOf(false) }
+    val bg    by animateColorAsState(if (focused) BgVariant else Color.Transparent, tween(150), label = "iconBg")
+    val scale by animateFloatAsState(if (focused) 1.12f else 1f, tween(150), label = "iconScale")
     Box(
         modifier = Modifier
             .size(40.dp)
+            .graphicsLayer { scaleX = scale; scaleY = scale }
             .clip(CircleShape)
-            .background(if (focused) BgVariant else Color.Transparent)
+            .background(bg)
             .onFocusChanged { focused = it.isFocused }
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, null, tint = if (focused) Purple else tint)
     }
+}
+
+// ─── TvAsyncImage ─────────────────────────────────────────────────────────────
+
+/**
+ * Ảnh thumbnail dùng chung: crossfade khi tải xong (mượt, không "nháy") +
+ * placeholder/error là một ô màu nền thay vì khoảng trống trắng. Dùng cho cả
+ * TrackCard và MiniPlayer để hành vi tải ảnh nhất quán.
+ */
+@Composable
+fun TvAsyncImage(url: String?, modifier: Modifier = Modifier) {
+    AsyncImage(
+        model = ImageRequest.Builder(LocalContext.current)
+            .data(url)
+            .crossfade(200)
+            .build(),
+        contentDescription = null,
+        contentScale = ContentScale.Crop,
+        placeholder = ColorPainter(BgVariant),
+        error       = ColorPainter(BgVariant),
+        modifier    = modifier,
+    )
 }
 
 // ─── Shared helpers ───────────────────────────────────────────────────────────

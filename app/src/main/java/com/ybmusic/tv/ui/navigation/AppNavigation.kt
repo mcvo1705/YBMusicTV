@@ -1,6 +1,9 @@
 package com.ybmusic.tv.ui.navigation
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
@@ -16,6 +19,8 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.*
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.focus.focusRequester
@@ -185,16 +190,21 @@ private fun SidebarItem(
 ) {
     var focused by remember { mutableStateOf(false) }
 
-    val bg = when {
+    val targetBg = when {
         focused  -> Purple.copy(alpha = 0.25f)
         selected -> Purple.copy(alpha = 0.12f)
-        else     -> androidx.compose.ui.graphics.Color.Transparent
+        else     -> Color.Transparent
     }
-    val borderColor = if (focused) Purple else androidx.compose.ui.graphics.Color.Transparent
+    val bg          by animateColorAsState(targetBg, tween(150), label = "navBg")
+    val borderColor by animateColorAsState(
+        if (focused) Purple else Color.Transparent, tween(150), label = "navBorder",
+    )
+    val scale       by animateFloatAsState(if (focused) 1.04f else 1f, tween(150), label = "navScale")
 
     Row(
         modifier = modifier
             .fillMaxWidth()
+            .graphicsLayer { scaleX = scale; scaleY = scale }
             .clip(RoundedCornerShape(10.dp))
             .background(bg)
             .border(2.dp, borderColor, RoundedCornerShape(10.dp))

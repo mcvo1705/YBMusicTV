@@ -188,8 +188,13 @@ fun SearchScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
                             LazyColumn(
                                 state = listState,
                                 verticalArrangement = Arrangement.spacedBy(2.dp),
+                                contentPadding = PaddingValues(vertical = 4.dp, horizontal = 2.dp),
                             ) {
-                                itemsIndexed(tracks, key = { _, t -> t.id }) { index, track ->
+                                itemsIndexed(
+                                    tracks,
+                                    key         = { _, t -> t.id },
+                                    contentType = { _, _ -> "track" },
+                                ) { index, track ->
                                     TrackCard(
                                         track    = track,
                                         isPlaying = playerState.currentTrack?.id == track.id,
