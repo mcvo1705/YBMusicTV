@@ -26,6 +26,9 @@ import com.ybmusic.tv.ui.MainViewModel
 import com.ybmusic.tv.ui.component.*
 import com.ybmusic.tv.ui.theme.*
 
+// Nạp trang kết quả kế tiếp khi còn cách cuối danh sách bấy nhiêu item.
+private const val PREFETCH_AHEAD = 8
+
 /**
  * Toàn bộ Column gốc dùng .focusGroup() — khai báo rõ đây là một vùng focus
  * có cấu trúc (search bar → toolbar → list), giúp Compose focus traversal
@@ -167,14 +170,15 @@ fun SearchScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
 
                             Spacer(Modifier.height(10.dp))
 
-                            // Phân trang vô hạn: khi item gần cuối lọt vào vùng nhìn thấy,
-                            // tự gọi loadMore() để nối thêm trang kết quả tiếp theo.
+                            // Phân trang vô hạn: nạp trước trang kế tiếp khi người dùng
+                            // còn cách cuối danh sách PREFETCH_AHEAD item, để trang mới
+                            // kịp về trước khi cuộn tới đáy (cuộn mượt, không khựng).
                             val listState = rememberLazyListState()
                             LaunchedEffect(listState, canLoadMore, tracks.size) {
                                 snapshotFlow {
                                     listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
                                 }.collect { lastVisible ->
-                                    if (canLoadMore && lastVisible >= tracks.size - 4) vm.loadMore()
+                                    if (canLoadMore && lastVisible >= tracks.size - PREFETCH_AHEAD) vm.loadMore()
                                 }
                             }
 
