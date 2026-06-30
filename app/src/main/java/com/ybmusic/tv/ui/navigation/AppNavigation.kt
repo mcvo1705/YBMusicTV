@@ -157,10 +157,17 @@ private fun TvSidebar(
                     Modifier
                 },
                 onSelect = {
-                    navController.navigate(dest.route) {
-                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                        launchSingleTop = true
-                        restoreState    = true
+                    // Guard: không navigate lại nếu đã ở đúng route này.
+                    // Quan trọng vì giờ onSelect được gọi từ onFocusChanged
+                    // (focus-follows navigation) — nếu thiếu guard này, mỗi
+                    // lần Compose recompose sidebar trong khi item đang giữ
+                    // focus đều có thể trigger navigate() thừa.
+                    if (current?.route != dest.route) {
+                        navController.navigate(dest.route) {
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState    = true
+                        }
                     }
                 },
             )
@@ -196,9 +203,19 @@ private fun SidebarItem(
             // focus tree và DPAD sẽ nhảy qua, gây crash performFocusNavigation
             // khi Compose không tìm được next focus target hợp lệ.
             .focusable()
-            .onFocusChanged { focused = it.isFocused }
-            // Bắt cả remote select key (Enter / DPAD_CENTER) và click thường
-            // (trường hợp dùng chuột/touch khi test trên emulator).
+            .onFocusChanged { state ->
+                focused = state.isFocused
+                // Điều hướng YouTube TV style: chỉ cần DPAD di chuyển focus
+                // tới item này là chuyển màn hình ngay, không cần bấm
+                // OK/DPAD_CENTER. Đây là hành vi người dùng yêu cầu — khác
+                // với pattern "focus rồi phải Enter để chọn" mà Netflix dùng,
+                // nhưng đúng với cách YouTube TV / Google TV launcher hoạt động
+                // cho sidebar điều hướng chính.
+                if (state.isFocused) onSelect()
+            }
+            // Vẫn giữ Enter/DirectionCenter để bấm OK cũng hoạt động — trường
+            // hợp remote gửi key event mà không có focus change tương ứng
+            // (hiếm, nhưng một số TV box xử lý khác chuẩn).
             .onKeyEvent { e ->
                 if ((e.key == Key.Enter || e.key == Key.DirectionCenter) && e.type == KeyEventType.KeyUp) {
                     onSelect(); true

@@ -1,6 +1,5 @@
 package com.ybmusic.tv.data.youtube
 
-import android.util.Log
 import com.ybmusic.tv.data.model.Track
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -13,7 +12,6 @@ import org.schabi.newpipe.extractor.stream.StreamInfoItem
 import javax.inject.Inject
 import javax.inject.Singleton
 
-private const val TAG    = "YouTubeSource"
 private const val TTL_MS = 2L * 60 * 60 * 1000   // 2 h cache
 
 @Singleton
@@ -24,21 +22,22 @@ class YouTubeSource @Inject constructor() {
     private val cache = HashMap<String, Cached>()
 
     // ── Search ────────────────────────────────────────────────────────────────
+    // KHÔNG bắt exception ở đây. Trước đây dùng runCatching {}.getOrElse {
+    // emptyList() } khiến mọi lỗi thật (mất mạng, NewPipe bị YouTube chặn,
+    // parser lỗi do YouTube đổi định dạng...) bị nuốt mất và UI luôn hiện
+    // "không tìm thấy kết quả" — sai hoàn toàn với lý do thật. Để exception
+    // bay lên MainViewModel.search(), nơi đã có UiState.Error xử lý đúng và
+    // hiển thị message cụ thể cho người dùng.
     suspend fun search(query: String): List<Track> = withContext(Dispatchers.IO) {
-        runCatching {
-            val handler = YouTube.searchQHFactory.fromQuery(
-                query,
-                listOf(YoutubeSearchQueryHandlerFactory.VIDEOS),
-                "",
-            )
-            SearchInfo.getInfo(YouTube, handler)
-                .relatedItems
-                .filterIsInstance<StreamInfoItem>()
-                .map { it.toTrack() }
-        }.getOrElse { e ->
-            Log.e(TAG, "search($query): ${e.message}")
-            emptyList()
-        }
+        val handler = YouTube.searchQHFactory.fromQuery(
+            query,
+            listOf(YoutubeSearchQueryHandlerFactory.VIDEOS),
+            "",
+        )
+        SearchInfo.getInfo(YouTube, handler)
+            .relatedItems
+            .filterIsInstance<StreamInfoItem>()
+            .map { it.toTrack() }
     }
 
     // ── Audio stream URL ──────────────────────────────────────────────────────
@@ -75,16 +74,12 @@ class YouTubeSource @Inject constructor() {
     }
 
     // ── Playlist ──────────────────────────────────────────────────────────────
+    // Cùng lý do với search(): không nuốt lỗi ở đây nữa.
     suspend fun playlist(url: String): List<Track> = withContext(Dispatchers.IO) {
-        runCatching {
-            PlaylistInfo.getInfo(YouTube, url)
-                .relatedItems
-                .filterIsInstance<StreamInfoItem>()
-                .map { it.toTrack() }
-        }.getOrElse { e ->
-            Log.e(TAG, "playlist($url): ${e.message}")
-            emptyList()
-        }
+        PlaylistInfo.getInfo(YouTube, url)
+            .relatedItems
+            .filterIsInstance<StreamInfoItem>()
+            .map { it.toTrack() }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────
