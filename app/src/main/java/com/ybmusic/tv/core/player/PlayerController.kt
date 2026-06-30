@@ -7,6 +7,7 @@ import android.util.Log
 import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MediaMetadata
+import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
@@ -156,6 +157,16 @@ class PlayerController @Inject constructor(
             override fun onPlaybackStateChanged(state: Int) {
                 _state.value = _state.value.copy(isBuffering = state == Player.STATE_BUFFERING)
                 if (state == Player.STATE_ENDED) playNext()
+            }
+            override fun onPlayerError(error: PlaybackException) {
+                // Lỗi phát (vd: 403 từ CDN, codec không hỗ trợ) — log rõ lý do và
+                // hiện cho người dùng thay vì "đứng hình" im lặng.
+                Log.e(TAG, "player error [${error.errorCodeName}]: ${error.message}", error)
+                _state.value = _state.value.copy(
+                    isBuffering = false,
+                    isPlaying   = false,
+                    error       = "Không phát được: ${error.errorCodeName}",
+                )
             }
         })
     }

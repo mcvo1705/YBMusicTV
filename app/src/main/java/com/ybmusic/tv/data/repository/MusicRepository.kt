@@ -20,6 +20,7 @@ class MusicRepository @Inject constructor(
     // ── YouTube ───────────────────────────────────────────────────────────────
 
     suspend fun search(query: String)      = yt.search(query)
+    suspend fun searchMore()               = yt.searchMore()
     suspend fun streamUrl(id: String)      = yt.streamUrl(id)
     suspend fun videoInfo(id: String)      = yt.videoInfo(id)
     suspend fun ytPlaylist(url: String)    = yt.playlist(url)

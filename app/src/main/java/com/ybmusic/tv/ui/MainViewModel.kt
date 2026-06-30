@@ -9,6 +9,7 @@ import com.ybmusic.tv.data.model.UiState
 import com.ybmusic.tv.data.repository.MusicRepository
 import com.ybmusic.tv.data.repository.SettingsRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.*
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -39,23 +40,58 @@ class MainViewModel @Inject constructor(
     private val _searchState = MutableStateFlow<UiState<List<Track>>>(UiState.Idle)
     val searchState: StateFlow<UiState<List<Track>>> = _searchState.asStateFlow()
 
+    // Còn trang kết quả tiếp theo để tải khi cuộn xuống cuối danh sách.
+    private val _canLoadMore = MutableStateFlow(false)
+    val canLoadMore: StateFlow<Boolean> = _canLoadMore.asStateFlow()
+
+    private val _isLoadingMore = MutableStateFlow(false)
+    val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
+
+    private var loadMoreJob: Job? = null
+
     fun onQueryChanged(q: String) { _query.value = q }
 
     fun search() {
         val q = _query.value.trim()
         if (q.isBlank()) return
+        loadMoreJob?.cancel()
+        _isLoadingMore.value = false
         viewModelScope.launch {
             _searchState.value = UiState.Loading
+            _canLoadMore.value = false
             runCatching {
-                val tracks = when {
-                    repo.isYtUrl(q) && repo.isYtPlaylist(q) -> repo.ytPlaylist(q)
-                    repo.isYtUrl(q)                          -> listOf(repo.videoInfo(repo.extractId(q)))
-                    else                                     -> repo.search(q)
+                when {
+                    repo.isYtUrl(q) && repo.isYtPlaylist(q) ->
+                        _searchState.value = UiState.Success(repo.ytPlaylist(q))
+                    repo.isYtUrl(q) ->
+                        _searchState.value = UiState.Success(listOf(repo.videoInfo(repo.extractId(q))))
+                    else -> {
+                        val page = repo.search(q)
+                        _searchState.value = UiState.Success(page.tracks)
+                        _canLoadMore.value = page.hasMore
+                    }
                 }
-                _searchState.value = UiState.Success(tracks)
             }.onFailure {
                 _searchState.value = UiState.Error(it.message ?: "Lỗi tìm kiếm")
             }
+        }
+    }
+
+    // Tải trang kết quả tiếp theo và nối vào danh sách hiện có (phân trang vô hạn).
+    fun loadMore() {
+        if (_isLoadingMore.value || !_canLoadMore.value) return
+        val current = (_searchState.value as? UiState.Success)?.data ?: return
+        loadMoreJob = viewModelScope.launch {
+            _isLoadingMore.value = true
+            runCatching {
+                val page   = repo.searchMore()
+                val merged = (current + page.tracks).distinctBy { it.id }
+                _searchState.value = UiState.Success(merged)
+                _canLoadMore.value = page.hasMore && page.tracks.isNotEmpty()
+            }.onFailure {
+                _canLoadMore.value = false
+            }
+            _isLoadingMore.value = false
         }
     }
 

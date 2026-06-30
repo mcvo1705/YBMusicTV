@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
@@ -36,11 +37,13 @@ import com.ybmusic.tv.ui.theme.*
  */
 @Composable
 fun SearchScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
-    val query       by vm.searchQuery.collectAsState()
-    val searchState by vm.searchState.collectAsState()
-    val playerState by vm.playerState.collectAsState()
-    val playlists   by vm.playlists.collectAsState()
-    val focus       = LocalFocusManager.current
+    val query         by vm.searchQuery.collectAsState()
+    val searchState   by vm.searchState.collectAsState()
+    val playerState   by vm.playerState.collectAsState()
+    val playlists     by vm.playlists.collectAsState()
+    val canLoadMore   by vm.canLoadMore.collectAsState()
+    val isLoadingMore by vm.isLoadingMore.collectAsState()
+    val focus         = LocalFocusManager.current
 
     var addTrack by remember { mutableStateOf<Track?>(null) }
 
@@ -155,10 +158,24 @@ fun SearchScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
 
                             Spacer(Modifier.height(10.dp))
 
+                            // Phân trang vô hạn: khi item gần cuối lọt vào vùng nhìn thấy,
+                            // tự gọi loadMore() để nối thêm trang kết quả tiếp theo.
+                            val listState = rememberLazyListState()
+                            LaunchedEffect(listState, canLoadMore, tracks.size) {
+                                snapshotFlow {
+                                    listState.layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: -1
+                                }.collect { lastVisible ->
+                                    if (canLoadMore && lastVisible >= tracks.size - 4) vm.loadMore()
+                                }
+                            }
+
                             // LazyColumn tự quản lý focus traversal giữa các item của nó,
-                            // miễn là mỗi item con (TrackCard) có .focusable() — đã có trong
+                            // miễn là mỗi item con (TrackCard) focusable — đã có trong
                             // TvComponents.kt. Không cần focusGroup() thêm ở đây.
-                            LazyColumn(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            LazyColumn(
+                                state = listState,
+                                verticalArrangement = Arrangement.spacedBy(2.dp),
+                            ) {
                                 itemsIndexed(tracks, key = { _, t -> t.id }) { index, track ->
                                     TrackCard(
                                         track    = track,
@@ -166,6 +183,13 @@ fun SearchScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
                                         onPlay   = { vm.playAll(tracks, index) },
                                         onAddToPlaylist = if (playlists.isNotEmpty()) ({ addTrack = track }) else null,
                                     )
+                                }
+                                if (isLoadingMore) {
+                                    item(key = "__loading_more__") {
+                                        Box(Modifier.fillMaxWidth().padding(16.dp), contentAlignment = Alignment.Center) {
+                                            CircularProgressIndicator(color = Purple, modifier = Modifier.size(28.dp))
+                                        }
+                                    }
                                 }
                             }
                         }

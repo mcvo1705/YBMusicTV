@@ -30,10 +30,12 @@ import com.ybmusic.tv.ui.theme.*
 // ─── TrackCard ────────────────────────────────────────────────────────────────
 
 /**
- * .focusable() ở Row gốc là bắt buộc: đây là item nằm trong LazyColumn, và
- * nếu không khai báo focusable rõ ràng, Compose có thể không đưa item này
- * vào focus tree khi danh sách rebuild (ví dụ sau khi search), khiến DPAD
- * "đứng" giữa danh sách — đúng loại lỗi performFocusNavigation đã gặp.
+ * Chỉ MỘT focus target duy nhất cho mỗi item: .clickable đã tự thêm item vào
+ * focus tree (nó bao gồm focusable bên trong). TRƯỚC đây Row vừa .focusable()
+ * vừa .clickable() → tạo HAI focus node chồng lên nhau cùng vùng, khiến DPAD
+ * phải nhấn 2 lần mới qua được item kế và highlight (.onFocusChanged) lệch pha
+ * so với item đang thực sự focus. Bỏ .focusable() thừa, đặt .onFocusChanged()
+ * NGAY TRƯỚC .clickable() để bám đúng trạng thái focus của node clickable.
  */
 @Composable
 fun TrackCard(
@@ -55,7 +57,6 @@ fun TrackCard(
             .fillMaxWidth()
             .clip(RoundedCornerShape(10.dp))
             .background(bg)
-            .focusable()
             .onFocusChanged { focused = it.isFocused }
             .clickable(onClick = onPlay)
             .padding(horizontal = 12.dp, vertical = 8.dp)
@@ -152,10 +153,15 @@ fun MiniPlayer(
                     modifier = Modifier.size(48.dp).clip(RoundedCornerShape(6.dp)),
                 )
 
-                // Title — không tương tác
+                // Title — không tương tác. Khi có lỗi phát/trích xuất thì hiện lý do
+                // (màu error) thay cho tên tác giả để người dùng biết vì sao không phát.
                 Column(Modifier.weight(1f)) {
                     Text(track.title, style = MaterialTheme.typography.titleSmall, color = TextPrimary, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(track.author, style = MaterialTheme.typography.bodySmall, color = TextMuted, maxLines = 1)
+                    if (state.error != null) {
+                        Text(state.error, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    } else {
+                        Text(track.author, style = MaterialTheme.typography.bodySmall, color = TextMuted, maxLines = 1)
+                    }
                 }
 
                 // Time — không tương tác
@@ -192,7 +198,6 @@ fun MiniPlayer(
                             .size(44.dp)
                             .clip(CircleShape)
                             .background(if (playPauseFocused) PurpleDim else Purple)
-                            .focusable()
                             .onFocusChanged { playPauseFocused = it.isFocused }
                             .clickable(onClick = onPlayPause),
                         contentAlignment = Alignment.Center,
@@ -232,7 +237,6 @@ fun TvIconBtn(icon: ImageVector, onClick: () -> Unit, tint: Color = TextPrimary)
             .size(40.dp)
             .clip(CircleShape)
             .background(if (focused) BgVariant else Color.Transparent)
-            .focusable()
             .onFocusChanged { focused = it.isFocused }
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
