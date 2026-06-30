@@ -2,6 +2,7 @@ package com.ybmusic.tv
 
 import android.app.Application
 import android.os.Bundle
+import android.util.Log
 import android.view.KeyEvent
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -46,7 +47,13 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // savedInstanceState != null ⇒ Activity bị HỆ THỐNG tạo lại (process death
+        // / config change ngoài danh sách configChanges). Log để khi nghi ngờ
+        // "reload" có thể biết ngay đây có phải nguyên nhân không.
+        Log.d(TAG, "onCreate(recreated=${savedInstanceState != null})")
         enableEdgeToEdge()
+        // connect() là idempotent (PlayerController @Singleton) nên gọi lại sau khi
+        // Activity tạo lại sẽ KHÔNG dựng player mới — playback đang chạy vẫn liền mạch.
         vm.player.connect()
 
         setContent {
@@ -54,6 +61,17 @@ class MainActivity : ComponentActivity() {
                 AppNavigation(vm = vm)
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        // KHÔNG reload gì ở đây — chỉ log. ViewModel + Singleton giữ nguyên state.
+        Log.d(TAG, "onResume() — no reload (state preserved in ViewModel/PlayerController)")
+    }
+
+    override fun onPause() {
+        super.onPause()
+        Log.d(TAG, "onPause() — playback keeps running in foreground service")
     }
 
     /**
@@ -71,7 +89,12 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onDestroy() {
-        vm.player.disconnect()
+        // CHỈ giải phóng player khi Activity thực sự đóng (isFinishing). Nếu chỉ là
+        // tạo lại do hệ thống, GIỮ controller để tránh dựng lại player (chống reload).
+        Log.d(TAG, "onDestroy(isFinishing=$isFinishing)")
+        if (isFinishing) vm.player.disconnect()
         super.onDestroy()
     }
 }
+
+private const val TAG = "Playback/Lifecycle"

@@ -52,11 +52,32 @@ class PlayerController @Inject constructor(
 
     private var ctrl: MediaController? = null
     private var progressJob: Job? = null
+    // Đánh dấu đang trong quá trình buildAsync() để chặn gọi connect() chồng nhau
+    // (vd: Activity tạo lại nhanh) tạo ra HAI MediaController cho cùng một session.
+    private var connecting = false
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
+    /**
+     * Bind một MediaController DUY NHẤT tới PlaybackService. PlayerController là
+     * @Singleton và ExoPlayer thật nằm trong service (sống qua việc Activity bị
+     * tạo lại), nên connect() phải idempotent: nếu đã có controller hoặc đang
+     * bind dở thì BỎ QUA — tránh "khởi tạo lại" player gây cảm giác reload.
+     */
     fun connect() {
-        Log.d(TAG, "connect(): binding MediaController to PlaybackService…")
+        if (ctrl != null) {
+            Log.d(TAG, "connect(): MediaController already connected — skip re-init")
+            return
+        }
+        if (connecting) {
+            Log.d(TAG, "connect(): bind already in progress — skip duplicate connect()")
+            return
+        }
+        connecting = true
+        // Log kèm stack trace để biết CHÍNH XÁC nơi nào gọi khởi tạo player —
+        // yêu cầu "log exactly what triggered any reload / caller method".
+        Log.d(TAG, "connect(): initializing NEW MediaController — caller trace below",
+            Throwable("connect() call site"))
         val token = SessionToken(ctx, ComponentName(ctx, PlaybackService::class.java))
         val future = MediaController.Builder(ctx, token).buildAsync()
         future.addListener(
@@ -67,15 +88,19 @@ class PlayerController @Inject constructor(
                     startProgress()
                     Log.d(TAG, "connect(): MediaController connected")
                 }.onFailure { Log.e(TAG, "connect(): failed to bind MediaController: ${it.message}", it) }
+                connecting = false
             },
             ContextCompat.getMainExecutor(ctx),
         )
     }
 
     fun disconnect() {
+        Log.d(TAG, "disconnect(): releasing MediaController (playback continues in service if active)")
         progressJob?.cancel()
+        progressJob = null
         ctrl?.release()
         ctrl = null
+        connecting = false
     }
 
     // ── Queue ─────────────────────────────────────────────────────────────────
