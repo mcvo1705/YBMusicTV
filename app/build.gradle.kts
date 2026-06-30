@@ -148,7 +148,7 @@ dependencies {
     implementation("io.coil-kt:coil-compose:2.7.0")
 
     // ── NewPipe Extractor ────────────────────────────────────────────────────
-    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.2")
+    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.3")
 
     // ── DataStore (Settings sprint) ──────────────────────────────────────────
     implementation("androidx.datastore:datastore-preferences:1.1.1")
