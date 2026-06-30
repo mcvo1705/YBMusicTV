@@ -24,6 +24,18 @@ class MainViewModel @Inject constructor(
     val player          : PlayerController,
 ) : ViewModel() {
 
+    init {
+        // Bằng chứng vòng đời: ViewModel phải được tạo ĐÚNG MỘT LẦN cho cả phiên.
+        // Nếu log này xuất hiện nhiều lần khi điều hướng D-pad / xoay cấu hình thì
+        // mới là "ViewModel re-creation". Thực tế nó chỉ in một lần (activity-scoped).
+        Log.d(TAG, "MainViewModel CREATED (hash=${System.identityHashCode(this)})")
+    }
+
+    override fun onCleared() {
+        Log.d(TAG, "MainViewModel onCleared() (hash=${System.identityHashCode(this)})")
+        super.onCleared()
+    }
+
     // ── Player ────────────────────────────────────────────────────────────────
     val playerState: StateFlow<PlayerState> = player.state
 
