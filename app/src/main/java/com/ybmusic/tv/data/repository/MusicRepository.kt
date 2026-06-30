@@ -22,6 +22,7 @@ class MusicRepository @Inject constructor(
     suspend fun search(query: String)      = yt.search(query)
     suspend fun searchMore()               = yt.searchMore()
     suspend fun streamUrl(id: String)      = yt.streamUrl(id)
+    fun invalidateStream(id: String)       = yt.invalidate(id)
     suspend fun videoInfo(id: String)      = yt.videoInfo(id)
     suspend fun ytPlaylist(url: String)    = yt.playlist(url)
     fun extractId(url: String)             = yt.extractId(url)
