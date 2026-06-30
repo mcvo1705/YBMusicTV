@@ -36,6 +36,15 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // Bật desugaring: NewPipe Extractor gọi URLEncoder.encode(String, Charset)
+        // — overload này chỉ tồn tại trong java.net.URLEncoder từ Android API 33.
+        // Trên TV box chạy Android cũ hơn (ví dụ Android 9-11 phổ biến ở Android
+        // TV box), runtime chỉ có overload cũ URLEncoder.encode(String, String)
+        // → NoSuchMethodError khi search, dù minSdk Gradle set là 23 (Gradle
+        // không tự kiểm tra việc gọi API mới hơn minSdk trong code thư viện bên
+        // thứ ba). Desugaring "dịch" các lệnh gọi API Java 8+ về dạng tương thích
+        // ngược, chạy được trên API thấp hơn mà không cần sửa code NewPipe.
+        isCoreLibraryDesugaringEnabled = true
     }
     kotlinOptions { jvmTarget = "17" }
 
@@ -118,4 +127,9 @@ dependencies {
 
     // ── Gson ─────────────────────────────────────────────────────────────────
     implementation("com.google.code.gson:gson:2.11.0")
+
+    // ── Core library desugaring runtime ──────────────────────────────────────
+    // Bắt buộc phải có dependency này khi isCoreLibraryDesugaringEnabled = true,
+    // nếu không Gradle sẽ báo lỗi thiếu desugar runtime khi build.
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.3")
 }
