@@ -107,7 +107,7 @@ File APK ở: `app/build/outputs/apk/debug/app-debug.apk`
 
 (Project cũng build qua GitHub Actions CI — push code, Actions tự build APK.)
 
-### Bước 4: Cài lên Xiaomi A43 Pro (Android TV)
+### Bước 4: Cài lên Xiaomi A43 Pro (Android TV) và Sony sản xuất 2019 => run smoothly...
 **Cách 1: ADB (khuyến nghị)**
 ```bash
 # Bật Developer Options trên TV: Settings > About > click Build Number 7 lần
