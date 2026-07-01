@@ -26,6 +26,8 @@ import androidx.compose.foundation.focusGroup
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.unit.dp
 import androidx.navigation.NavGraph.Companion.findStartDestination
@@ -138,10 +140,38 @@ private fun TvSidebar(
             .padding(vertical = 20.dp, horizontal = 12.dp)
             .focusGroup(),
     ) {
-        Icon(
-            Icons.Default.MusicNote, null,
-            tint = Purple,
-            modifier = Modifier.padding(horizontal = 8.dp).size(28.dp),
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
+        ) {
+            Icon(
+                Icons.Default.MusicNote, null,
+                tint = Purple,
+                modifier = Modifier.size(24.dp),
+            )
+            Text(
+                "YB music",
+                style = MaterialTheme.typography.titleMedium.copy(
+                    fontFamily = FontFamily.Serif,
+                    fontWeight = FontWeight.Bold,
+                ),
+                color = TextPrimary,
+            )
+            Icon(
+                Icons.Default.MusicNote, null,
+                tint = Purple,
+                // Lật ngang icon gốc để làm ký hiệu đóng, đối xứng với icon mở
+                // bên trái — cùng 1 icon, không thêm asset mới.
+                modifier = Modifier
+                    .size(24.dp)
+                    .graphicsLayer(scaleX = -1f),
+            )
+        }
+        Text(
+            "The app design and coding by mcvo1705",
+            style = MaterialTheme.typography.labelSmall,
+            color = TextMuted,
+            modifier = Modifier.padding(start = 8.dp),
         )
 
         Spacer(Modifier.height(16.dp))
