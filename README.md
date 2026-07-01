@@ -2,7 +2,11 @@
 
 Phiên bản Android TV native của YBMusic, viết bằng Kotlin + Jetpack Compose for TV.
 Không cần server trung gian — lấy stream URL YouTube trực tiếp qua **NewPipe Extractor**.
-![Uploading tv.png…]()
+## Screenshot
+
+<p align="center">
+  <img src="assets/tv.png" width="800"/>
+</p>
 
 ---
 
