@@ -77,14 +77,13 @@ fun SearchScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
             Text(
                 buildAnnotatedString {
                     withStyle(SpanStyle(color = Purple)) { append("♪") }
-                    append("YB music")
+                    withStyle(SpanStyle(color = TextPrimary)) { append("YB music") }
                     withStyle(SpanStyle(color = Purple)) { append("♪") }
                 },
                 style = MaterialTheme.typography.headlineMedium.copy(
                     fontFamily = FontFamily.Serif,
                     fontWeight = FontWeight.Bold,
                 ),
-                color = TextPrimary,
             )
             Text(
                 "The app design and coding by mcvo1705",
