@@ -20,6 +20,9 @@ import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.*
 import com.ybmusic.tv.data.model.Playlist
 import com.ybmusic.tv.data.model.Track
@@ -71,17 +74,18 @@ fun SearchScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
     ) {
         // Header
         Column {
-            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                Icon(Icons.Default.MusicNote, null, tint = Purple, modifier = Modifier.size(32.dp))
-                Text(
-                    "YB music",
-                    style = MaterialTheme.typography.headlineMedium.copy(
-                        fontFamily = FontFamily.Serif,
-                        fontWeight = FontWeight.Bold,
-                    ),
-                    color = TextPrimary,
-                )
-            }
+            Text(
+                buildAnnotatedString {
+                    withStyle(SpanStyle(color = Purple)) { append("♪") }
+                    append("YB music")
+                    withStyle(SpanStyle(color = Purple)) { append("♪") }
+                },
+                style = MaterialTheme.typography.headlineMedium.copy(
+                    fontFamily = FontFamily.Serif,
+                    fontWeight = FontWeight.Bold,
+                ),
+                color = TextPrimary,
+            )
             Text(
                 "The app design and coding by mcvo1705",
                 style = MaterialTheme.typography.bodyMedium,
