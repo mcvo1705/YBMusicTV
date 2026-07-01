@@ -18,11 +18,6 @@ import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.input.key.*
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.*
 import com.ybmusic.tv.data.model.Playlist
 import com.ybmusic.tv.data.model.Track
@@ -72,28 +67,6 @@ fun SearchScreen(vm: MainViewModel, modifier: Modifier = Modifier) {
             .padding(horizontal = 36.dp, vertical = 20.dp)
             .focusGroup(),
     ) {
-        // Header
-        Column {
-            Text(
-                buildAnnotatedString {
-                    withStyle(SpanStyle(color = Purple)) { append("♪") }
-                    withStyle(SpanStyle(color = TextPrimary)) { append("YB music") }
-                    withStyle(SpanStyle(color = Purple)) { append("♪") }
-                },
-                style = MaterialTheme.typography.headlineMedium.copy(
-                    fontFamily = FontFamily.Serif,
-                    fontWeight = FontWeight.Bold,
-                ),
-            )
-            Text(
-                "The app design and coding by mcvo1705",
-                style = MaterialTheme.typography.bodyMedium,
-                color = TextMuted,
-            )
-        }
-
-        Spacer(Modifier.height(20.dp))
-
         // Search bar — OutlinedTextField tự là một focus target; KHÔNG thêm
         // .focusable() (sẽ tạo focus node thứ hai khiến phải nhấn DPAD 2 lần và
         // focus "rỗng" không mở bàn phím).
