@@ -6,6 +6,8 @@ Không cần server trung gian — lấy stream URL YouTube trực tiếp qua **
 
 <p align="center">
   <img width="1920" height="1080" alt="tv" src="https://github.com/user-attachments/assets/ce42bc43-7e1c-4bb7-938c-ebea817234ea" />
+  <img width="1920" height="1080" alt="screen" src="https://github.com/user-attachments/assets/8f49e7fe-ca08-4021-92d3-0366df1788f4" />
+
 </p>
 
 ---
