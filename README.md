@@ -5,7 +5,7 @@ Không cần server trung gian — lấy stream URL YouTube trực tiếp qua **
 ## Screenshot
 
 <p align="center">
-  <img src="assets/tv.png" width="800"/>
+  <img width="1920" height="1080" alt="tv" src="https://github.com/user-attachments/assets/ce42bc43-7e1c-4bb7-938c-ebea817234ea" />
 </p>
 
 ---
